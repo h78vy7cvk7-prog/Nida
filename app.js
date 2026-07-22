@@ -1,76 +1,4 @@
-const prayerData = {
-  İstanbul: {
-    İmsak: "04:12",
-    Güneş: "05:55",
-    Öğle: "13:16",
-    İkindi: "17:08",
-    Akşam: "20:27",
-    Yatsı: "22:03"
-  },
-
-  Ankara: {
-    İmsak: "04:05",
-    Güneş: "05:46",
-    Öğle: "13:00",
-    İkindi: "16:50",
-    Akşam: "20:09",
-    Yatsı: "21:43"
-  },
-
-  İzmir: {
-    İmsak: "04:35",
-    Güneş: "06:13",
-    Öğle: "13:23",
-    İkindi: "17:10",
-    Akşam: "20:31",
-    Yatsı: "22:02"
-  },
-
-  Elazığ: {
-    İmsak: "03:43",
-    Güneş: "05:26",
-    Öğle: "12:39",
-    İkindi: "16:30",
-    Akşam: "19:49",
-    Yatsı: "21:24"
-  },
-
-  Bingöl: {
-    İmsak: "03:36",
-    Güneş: "05:19",
-    Öğle: "12:34",
-    İkindi: "16:25",
-    Akşam: "19:45",
-    Yatsı: "21:20"
-  },
-
-  Diyarbakır: {
-    İmsak: "03:41",
-    Güneş: "05:23",
-    Öğle: "12:35",
-    İkindi: "16:25",
-    Akşam: "19:44",
-    Yatsı: "21:18"
-  },
-
-  Bursa: {
-    İmsak: "04:16",
-    Güneş: "05:58",
-    Öğle: "13:14",
-    İkindi: "17:05",
-    Akşam: "20:24",
-    Yatsı: "21:59"
-  },
-
-  Antalya: {
-    İmsak: "04:20",
-    Güneş: "05:56",
-    Öğle: "13:06",
-    İkindi: "16:52",
-    Akşam: "20:10",
-    Yatsı: "21:39"
-  }
-};
+let prayerData = {};
 
 const prayerIcons = {
   İmsak: "☾",
@@ -81,10 +9,19 @@ const prayerIcons = {
   Yatsı: "✦"
 };
 
+const apiPrayerNames = {
+  Fajr: "İmsak",
+  Sunrise: "Güneş",
+  Dhuhr: "Öğle",
+  Asr: "İkindi",
+  Maghrib: "Akşam",
+  Isha: "Yatsı"
+};
+
 const state = {
   city:
     localStorage.getItem("nida-city") ||
-    "İstanbul",
+    "Elazığ",
 
   notifications:
     JSON.parse(
@@ -161,29 +98,311 @@ const installButton =
 
 let deferredInstallPrompt = null;
 
+/*
+  API bazen saatleri:
+  "03:42 (EEST)"
+  biçiminde gönderebilir.
+
+  Bu fonksiyon yalnızca 03:42
+  kısmını alır.
+*/
+function cleanTime(value) {
+  if (!value) {
+    return "--:--";
+  }
+
+  return value
+    .split(" ")[0]
+    .trim();
+}
+
+/*
+  İnternetten güncel namaz
+  vakitlerini getirir.
+*/
+async function fetchPrayerTimes() {
+  showLoadingState();
+
+  const city =
+    encodeURIComponent(state.city);
+
+  const url =
+    "https://api.aladhan.com/v1/" +
+    "timingsByCity" +
+    `?city=${city}` +
+    "&country=Turkey" +
+    "&method=13" +
+    "&school=1";
+
+  try {
+    const response =
+      await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(
+        "Sunucu yanıt vermedi."
+      );
+    }
+
+    const result =
+      await response.json();
+
+    if (
+      result.code !== 200 ||
+      !result.data ||
+      !result.data.timings
+    ) {
+      throw new Error(
+        "Vakit verisi alınamadı."
+      );
+    }
+
+    const timings =
+      result.data.timings;
+
+    prayerData = {
+      İmsak:
+        cleanTime(timings.Fajr),
+
+      Güneş:
+        cleanTime(timings.Sunrise),
+
+      Öğle:
+        cleanTime(timings.Dhuhr),
+
+      İkindi:
+        cleanTime(timings.Asr),
+
+      Akşam:
+        cleanTime(timings.Maghrib),
+
+      Yatsı:
+        cleanTime(timings.Isha)
+    };
+
+    /*
+      Verileri telefona kaydediyoruz.
+      İnternet kesilirse son alınan
+      vakitleri gösterebiliriz.
+    */
+    localStorage.setItem(
+      `nida-times-${state.city}`,
+      JSON.stringify({
+        date:
+          new Date()
+            .toISOString()
+            .slice(0, 10),
+
+        times:
+          prayerData
+      })
+    );
+
+    renderApiDates(
+      result.data.date
+    );
+
+    renderPrayerList();
+    renderNextPrayer();
+    renderNotificationOptions();
+
+  } catch (error) {
+    console.error(
+      "Namaz vakti hatası:",
+      error
+    );
+
+    const loadedFromCache =
+      loadCachedPrayerTimes();
+
+    if (!loadedFromCache) {
+      showPrayerError();
+    }
+
+    showToast(
+      loadedFromCache
+        ? "İnternet yok. Son kaydedilen vakitler gösteriliyor."
+        : "Namaz vakitleri alınamadı."
+    );
+  }
+}
+
+/*
+  İnternet yoksa daha önce
+  kaydedilen vakitleri yükler.
+*/
+function loadCachedPrayerTimes() {
+  const saved =
+    localStorage.getItem(
+      `nida-times-${state.city}`
+    );
+
+  if (!saved) {
+    return false;
+  }
+
+  try {
+    const parsed =
+      JSON.parse(saved);
+
+    if (!parsed.times) {
+      return false;
+    }
+
+    prayerData =
+      parsed.times;
+
+    renderLocalDate();
+    renderPrayerList();
+    renderNextPrayer();
+    renderNotificationOptions();
+
+    return true;
+
+  } catch (error) {
+    return false;
+  }
+}
+
+function showLoadingState() {
+  locationLabel.textContent =
+    `${state.city}, Türkiye`;
+
+  prayerList.innerHTML = `
+    <div
+      style="
+        padding: 26px;
+        text-align: center;
+        color: #69756f;
+      "
+    >
+      Güncel vakitler alınıyor...
+    </div>
+  `;
+
+  nextPrayerName.textContent =
+    "Yükleniyor";
+
+  nextPrayerTime.textContent =
+    "--:--";
+
+  countdown.textContent =
+    "Lütfen bekleyin";
+}
+
+function showPrayerError() {
+  prayerList.innerHTML = `
+    <div
+      style="
+        padding: 26px;
+        text-align: center;
+        color: #69756f;
+      "
+    >
+      Namaz vakitleri alınamadı.
+      İnternet bağlantını kontrol et.
+    </div>
+  `;
+
+  nextPrayerName.textContent =
+    "Veri yok";
+
+  nextPrayerTime.textContent =
+    "--:--";
+
+  countdown.textContent =
+    "Bağlantı gerekli";
+}
+
+/*
+  API'den gelen miladi ve
+  hicri tarihi ekrana yazar.
+*/
+function renderApiDates(dateData) {
+  if (
+    dateData &&
+    dateData.gregorian
+  ) {
+    gregorianDate.textContent =
+      dateData.gregorian.date;
+  } else {
+    renderLocalDate();
+  }
+
+  if (
+    dateData &&
+    dateData.hijri
+  ) {
+    const hijri =
+      dateData.hijri;
+
+    hijriDate.textContent =
+      `${hijri.day} ` +
+      `${hijri.month.tr || hijri.month.en} ` +
+      `${hijri.year}`;
+  } else {
+    hijriDate.textContent =
+      "Hicrî tarih alınamadı";
+  }
+}
+
+function renderLocalDate() {
+  const now =
+    new Date();
+
+  gregorianDate.textContent =
+    new Intl.DateTimeFormat(
+      "tr-TR",
+      {
+        day: "numeric",
+        month: "long",
+        year: "numeric"
+      }
+    ).format(now);
+
+  hijriDate.textContent =
+    "Son kaydedilen vakitler";
+}
+
 function minutesFromTime(value) {
-  const [hours, minutes] =
+  const parts =
     value
       .split(":")
       .map(Number);
 
-  return hours * 60 + minutes;
+  const hours =
+    parts[0];
+
+  const minutes =
+    parts[1];
+
+  return (
+    hours * 60 +
+    minutes
+  );
 }
 
 function getNextPrayer() {
-  const now = new Date();
+  const entries =
+    Object.entries(
+      prayerData
+    );
+
+  if (entries.length === 0) {
+    return null;
+  }
+
+  const now =
+    new Date();
 
   const nowMinutes =
     now.getHours() * 60 +
     now.getMinutes();
 
-  const entries =
-    Object.entries(
-      prayerData[state.city]
-    );
-
-  for (const [name, time] of entries) {
-
+  for (
+    const [name, time]
+    of entries
+  ) {
     if (
       minutesFromTime(time) >
       nowMinutes
@@ -194,7 +413,6 @@ function getNextPrayer() {
         tomorrow: false
       };
     }
-
   }
 
   return {
@@ -208,14 +426,16 @@ function getCountdown(
   targetTime,
   tomorrow = false
 ) {
-  const now = new Date();
+  const now =
+    new Date();
 
   const [hours, minutes] =
     targetTime
       .split(":")
       .map(Number);
 
-  const target = new Date(now);
+  const target =
+    new Date(now);
 
   target.setHours(
     hours,
@@ -254,7 +474,10 @@ function getCountdown(
   const minutesLeft =
     String(
       Math.floor(
-        (totalSeconds % 3600) / 60
+        (
+          totalSeconds %
+          3600
+        ) / 60
       )
     ).padStart(2, "0");
 
@@ -270,41 +493,24 @@ function getCountdown(
   );
 }
 
-function renderDates() {
-  const now = new Date();
-
-  gregorianDate.textContent =
-    new Intl.DateTimeFormat(
-      "tr-TR",
-      {
-        day: "numeric",
-        month: "long",
-        year: "numeric"
-      }
-    ).format(now);
-
-  hijriDate.textContent =
-    "Hicrî tarih desteği sonraki sürümde";
-}
-
 function renderPrayerList() {
   const next =
     getNextPrayer();
 
-  prayerList.innerHTML = "";
+  if (!next) {
+    return;
+  }
 
-  const cityPrayerTimes =
-    Object.entries(
-      prayerData[state.city]
-    );
+  prayerList.innerHTML = "";
 
   for (
     const [name, time]
-    of cityPrayerTimes
+    of Object.entries(prayerData)
   ) {
-
     const row =
-      document.createElement("div");
+      document.createElement(
+        "div"
+      );
 
     row.className =
       `prayer-row ${
@@ -314,7 +520,8 @@ function renderPrayerList() {
       }`;
 
     const enabled =
-      state.notifications[name] !== false;
+      state.notifications[name]
+      !== false;
 
     row.innerHTML = `
       <div class="prayer-icon">
@@ -341,50 +548,50 @@ function renderPrayerList() {
     prayerList.appendChild(row);
   }
 
-  const bellButtons =
-    document.querySelectorAll(
+  document
+    .querySelectorAll(
       ".bell-toggle"
-    );
+    )
+    .forEach(button => {
 
-  bellButtons.forEach(button => {
+      button.addEventListener(
+        "click",
+        () => {
 
-    button.addEventListener(
-      "click",
-      () => {
+          const prayer =
+            button.dataset.prayer;
 
-        const prayer =
-          button.dataset.prayer;
+          state.notifications[prayer] =
+            state.notifications[prayer]
+            === false;
 
-        state.notifications[prayer] =
-          state.notifications[prayer] === false;
+          saveNotificationSettings();
 
-        localStorage.setItem(
-          "nida-notifications",
-          JSON.stringify(
-            state.notifications
-          )
-        );
+          renderPrayerList();
+          renderNotificationOptions();
 
-        renderPrayerList();
-        renderNotificationOptions();
+          const status =
+            state.notifications[prayer]
+            === false
+              ? "kapatıldı"
+              : "açıldı";
 
-        const status =
-          state.notifications[prayer] === false
-            ? "kapatıldı"
-            : "açıldı";
+          showToast(
+            `${prayer} bildirimi ${status}.`
+          );
+        }
+      );
 
-        showToast(
-          `${prayer} bildirimi ${status}.`
-        );
-      }
-    );
-
-  });
+    });
 }
 
 function renderNextPrayer() {
   const next =
     getNextPrayer();
+
+  if (!next) {
+    return;
+  }
 
   nextPrayerName.textContent =
     next.name;
@@ -400,73 +607,77 @@ function renderNextPrayer() {
 }
 
 function renderNotificationOptions() {
-  notificationOptions.innerHTML = "";
+  notificationOptions.innerHTML =
+    "";
 
-  const prayers =
-    Object.keys(
-      prayerData[state.city]
-    );
+  Object
+    .keys(prayerData)
+    .forEach(name => {
 
-  prayers.forEach(name => {
+      const enabled =
+        state.notifications[name]
+        !== false;
 
-    const enabled =
-      state.notifications[name] !== false;
-
-    const wrapper =
-      document.createElement("label");
-
-    wrapper.className =
-      "notification-option";
-
-    wrapper.innerHTML = `
-      <span>${name}</span>
-
-      <input
-        type="checkbox"
-        data-prayer="${name}"
-        ${enabled ? "checked" : ""}
-      >
-    `;
-
-    notificationOptions.appendChild(
-      wrapper
-    );
-  });
-
-  const inputs =
-    notificationOptions
-      .querySelectorAll("input");
-
-  inputs.forEach(input => {
-
-    input.addEventListener(
-      "change",
-      () => {
-
-        const prayer =
-          input.dataset.prayer;
-
-        state.notifications[prayer] =
-          input.checked;
-
-        localStorage.setItem(
-          "nida-notifications",
-          JSON.stringify(
-            state.notifications
-          )
+      const wrapper =
+        document.createElement(
+          "label"
         );
 
-        renderPrayerList();
-      }
-    );
+      wrapper.className =
+        "notification-option";
 
-  });
+      wrapper.innerHTML = `
+        <span>${name}</span>
+
+        <input
+          type="checkbox"
+          data-prayer="${name}"
+          ${enabled ? "checked" : ""}
+        >
+      `;
+
+      notificationOptions
+        .appendChild(wrapper);
+    });
+
+  notificationOptions
+    .querySelectorAll("input")
+    .forEach(input => {
+
+      input.addEventListener(
+        "change",
+        () => {
+
+          const prayer =
+            input.dataset.prayer;
+
+          state.notifications[prayer] =
+            input.checked;
+
+          saveNotificationSettings();
+          renderPrayerList();
+        }
+      );
+
+    });
+}
+
+function saveNotificationSettings() {
+  localStorage.setItem(
+    "nida-notifications",
+    JSON.stringify(
+      state.notifications
+    )
+  );
 }
 
 function showToast(message) {
-  toast.textContent = message;
+  toast.textContent =
+    message;
 
-  toast.classList.add("show");
+  toast.classList.add(
+    "show"
+  );
 
   clearTimeout(
     showToast.timeout
@@ -475,23 +686,12 @@ function showToast(message) {
   showToast.timeout =
     setTimeout(
       () => {
-        toast.classList.remove("show");
+        toast.classList.remove(
+          "show"
+        );
       },
-      2200
+      2500
     );
-}
-
-function renderAll() {
-  locationLabel.textContent =
-    `${state.city}, Türkiye`;
-
-  citySelect.value =
-    state.city;
-
-  renderDates();
-  renderPrayerList();
-  renderNextPrayer();
-  renderNotificationOptions();
 }
 
 document
@@ -501,6 +701,9 @@ document
   .addEventListener(
     "click",
     () => {
+      citySelect.value =
+        state.city;
+
       cityDialog.showModal();
     }
   );
@@ -511,7 +714,7 @@ document
   )
   .addEventListener(
     "click",
-    event => {
+    async event => {
 
       event.preventDefault();
 
@@ -525,7 +728,10 @@ document
 
       cityDialog.close();
 
-      renderAll();
+      locationLabel.textContent =
+        `${state.city}, Türkiye`;
+
+      await fetchPrayerTimes();
 
       showToast(
         `${state.city} seçildi.`
@@ -540,7 +746,20 @@ document
   .addEventListener(
     "click",
     () => {
-      notificationDialog.showModal();
+      notificationDialog
+        .showModal();
+    }
+  );
+
+document
+  .getElementById(
+    "settingsButton"
+  )
+  .addEventListener(
+    "click",
+    () => {
+      notificationDialog
+        .showModal();
     }
   );
 
@@ -588,19 +807,8 @@ document
     "click",
     () => {
       showToast(
-        "Kıble pusulası ikinci sürümde eklenecek."
+        "Kıble pusulası sonraki sürümde açılacak."
       );
-    }
-  );
-
-document
-  .getElementById(
-    "settingsButton"
-  )
-  .addEventListener(
-    "click",
-    () => {
-      notificationDialog.showModal();
     }
   );
 
@@ -645,7 +853,7 @@ installButton.addEventListener(
       !deferredInstallPrompt
     ) {
       showToast(
-        "Safari menüsünden Ana Ekrana Ekle seçeneğini kullan."
+        "Safari paylaş menüsünden Ana Ekrana Ekle seçeneğini kullan."
       );
 
       return;
@@ -656,9 +864,11 @@ installButton.addEventListener(
     await deferredInstallPrompt
       .userChoice;
 
-    deferredInstallPrompt = null;
+    deferredInstallPrompt =
+      null;
 
-    installButton.hidden = true;
+    installButton.hidden =
+      true;
   }
 );
 
@@ -685,8 +895,22 @@ if (
   );
 }
 
-renderAll();
+/*
+  Sayfa ilk açıldığında güncel
+  vakitleri getir.
+*/
+locationLabel.textContent =
+  `${state.city}, Türkiye`;
 
+citySelect.value =
+  state.city;
+
+fetchPrayerTimes();
+
+/*
+  Geri sayımı saniyede bir
+  yeniler.
+*/
 setInterval(
   renderNextPrayer,
   1000
