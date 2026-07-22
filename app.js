@@ -9,15 +9,6 @@ const prayerIcons = {
   Yatsı: "✦"
 };
 
-const apiPrayerNames = {
-  Fajr: "İmsak",
-  Sunrise: "Güneş",
-  Dhuhr: "Öğle",
-  Asr: "İkindi",
-  Maghrib: "Akşam",
-  Isha: "Yatsı"
-};
-
 const state = {
   city:
     localStorage.getItem("nida-city") ||
@@ -98,14 +89,6 @@ const installButton =
 
 let deferredInstallPrompt = null;
 
-/*
-  API bazen saatleri:
-  "03:42 (EEST)"
-  biçiminde gönderebilir.
-
-  Bu fonksiyon yalnızca 03:42
-  kısmını alır.
-*/
 function cleanTime(value) {
   if (!value) {
     return "--:--";
@@ -116,10 +99,6 @@ function cleanTime(value) {
     .trim();
 }
 
-/*
-  İnternetten güncel namaz
-  vakitlerini getirir.
-*/
 async function fetchPrayerTimes() {
   showLoadingState();
 
@@ -180,11 +159,6 @@ async function fetchPrayerTimes() {
         cleanTime(timings.Isha)
     };
 
-    /*
-      Verileri telefona kaydediyoruz.
-      İnternet kesilirse son alınan
-      vakitleri gösterebiliriz.
-    */
     localStorage.setItem(
       `nida-times-${state.city}`,
       JSON.stringify({
@@ -227,10 +201,6 @@ async function fetchPrayerTimes() {
   }
 }
 
-/*
-  İnternet yoksa daha önce
-  kaydedilen vakitleri yükler.
-*/
 function loadCachedPrayerTimes() {
   const saved =
     localStorage.getItem(
@@ -314,10 +284,6 @@ function showPrayerError() {
     "Bağlantı gerekli";
 }
 
-/*
-  API'den gelen miladi ve
-  hicri tarihi ekrana yazar.
-*/
 function renderApiDates(dateData) {
   if (
     dateData &&
@@ -772,28 +738,79 @@ document
     async () => {
 
       if (
-        !("Notification" in window)
+        !("serviceWorker" in navigator)
       ) {
         showToast(
-          "Bu tarayıcı bildirimleri desteklemiyor."
+          "Bu cihaz bildirim sistemini desteklemiyor."
         );
 
         return;
       }
 
-      const permission =
-        await Notification
-          .requestPermission();
-
       if (
-        permission === "granted"
+        !("Notification" in window)
       ) {
         showToast(
-          "Bildirim izni verildi."
+          "Nida'yı önce ana ekrana ekleyip oradan aç."
         );
-      } else {
+
+        return;
+      }
+
+      try {
+        const permission =
+          await Notification
+            .requestPermission();
+
+        if (
+          permission !== "granted"
+        ) {
+          showToast(
+            "Bildirim izni verilmedi."
+          );
+
+          return;
+        }
+
+        const registration =
+          await navigator
+            .serviceWorker
+            .ready;
+
+        await registration
+          .showNotification(
+            "Nida",
+            {
+              body:
+                "Bildirimler hazır. Vaktin geldiğinde burada haber vereceğiz.",
+
+              icon:
+                "./icons/icon-192.png",
+
+              badge:
+                "./icons/icon-192.png",
+
+              tag:
+                "nida-test",
+
+              data: {
+                url: "./"
+              }
+            }
+          );
+
         showToast(
-          "Bildirim izni verilmedi."
+          "Deneme bildirimi gönderildi."
+        );
+
+      } catch (error) {
+        console.error(
+          "Bildirim hatası:",
+          error
+        );
+
+        showToast(
+          "Bildirim gönderilemedi."
         );
       }
     }
@@ -895,10 +912,6 @@ if (
   );
 }
 
-/*
-  Sayfa ilk açıldığında güncel
-  vakitleri getir.
-*/
 locationLabel.textContent =
   `${state.city}, Türkiye`;
 
@@ -907,10 +920,6 @@ citySelect.value =
 
 fetchPrayerTimes();
 
-/*
-  Geri sayımı saniyede bir
-  yeniler.
-*/
 setInterval(
   renderNextPrayer,
   1000
