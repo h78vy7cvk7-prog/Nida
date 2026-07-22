@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  />
+
+  <meta name="theme-color" content="#0f3d32" />
+
+  <meta
+    name="description"
+    content="Nida — sade ve güvenilir namaz vakti uygulaması."
+  />
+
+  <title>Nida — Vaktin geldi</title>
+
+  <link rel="manifest" href="manifest.json" />
+
+  <link
+    rel="apple-touch-icon"
+    href="icons/icon-192.png"
+  />
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div class="app-shell">
+
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">NİDA</p>
+        <h1>Vaktin geldi.</h1>
+      </div>
+
+      <button
+        id="settingsButton"
+        class="icon-button"
+        aria-label="Ayarlar"
+      >
+        ⚙︎
+      </button>
+    </header>
+
+    <main>
+
+      <section class="hero-card">
+
+        <div class="hero-top">
+          <div>
+            <p id="locationLabel" class="location">
+              İstanbul, Türkiye
+            </p>
+
+            <p id="hijriDate" class="muted">
+              Hicrî tarih hazırlanıyor
+            </p>
+          </div>
+
+          <button
+            id="changeCityButton"
+            class="ghost-button"
+          >
+            Şehir değiştir
+          </button>
+        </div>
+
+        <div class="next-prayer">
+          <p class="muted">Sıradaki vakit</p>
+
+          <h2 id="nextPrayerName">
+            Akşam
+          </h2>
+
+          <div id="nextPrayerTime" class="big-time">
+            19:42
+          </div>
+
+          <p id="countdown" class="countdown">
+            01:28:15 kaldı
+          </p>
+        </div>
+
+      </section>
+
+      <section class="section">
+
+        <div class="section-heading">
+          <h3>Bugünün vakitleri</h3>
+
+          <span
+            id="gregorianDate"
+            class="muted"
+          ></span>
+        </div>
+
+        <div
+          id="prayerList"
+          class="prayer-list"
+        ></div>
+
+      </section>
+
+      <section class="quick-actions">
+
+        <button
+          class="action-card"
+          id="qiblaButton"
+        >
+          <span>🧭</span>
+          <strong>Kıble</strong>
+          <small>Yönünü bul</small>
+        </button>
+
+        <button
+          class="action-card"
+          id="notificationButton"
+        >
+          <span>🔔</span>
+          <strong>Bildirimler</strong>
+          <small>Vakitleri ayarla</small>
+        </button>
+
+        <button
+          class="action-card"
+          id="installButton"
+          hidden
+        >
+          <span>＋</span>
+          <strong>Yükle</strong>
+          <small>Ana ekrana ekle</small>
+        </button>
+
+      </section>
+
+    </main>
+
+    <nav
+      class="bottom-nav"
+      aria-label="Ana menü"
+    >
+
+      <button class="nav-item active">
+        <span>⌂</span>
+        <small>Ana Sayfa</small>
+      </button>
+
+      <button
+        class="nav-item"
+        id="timesNav"
+      >
+        <span>◷</span>
+        <small>Vakitler</small>
+      </button>
+
+      <button
+        class="nav-item"
+        id="trackNav"
+      >
+        <span>✓</span>
+        <small>Takip</small>
+      </button>
+
+      <button
+        class="nav-item"
+        id="profileNav"
+      >
+        <span>○</span>
+        <small>Profil</small>
+      </button>
+
+    </nav>
+
+  </div>
+
+  <dialog id="cityDialog">
+
+    <form
+      method="dialog"
+      class="dialog-card"
+    >
+
+      <div class="dialog-header">
+        <h3>Şehir seç</h3>
+
+        <button
+          class="icon-button"
+          value="cancel"
+          aria-label="Kapat"
+        >
+          ×
+        </button>
+      </div>
+
+      <label for="citySelect">
+        Şehir
+      </label>
+
+      <select id="citySelect">
+        <option value="İstanbul">İstanbul</option>
+        <option value="Ankara">Ankara</option>
+        <option value="İzmir">İzmir</option>
+        <option value="Elazığ">Elazığ</option>
+        <option value="Bingöl">Bingöl</option>
+        <option value="Diyarbakır">Diyarbakır</option>
+        <option value="Bursa">Bursa</option>
+        <option value="Antalya">Antalya</option>
+      </select>
+
+      <button
+        id="saveCityButton"
+        class="primary-button"
+        value="default"
+      >
+        Kaydet
+      </button>
+
+    </form>
+
+  </dialog>
+
+  <dialog id="notificationDialog">
+
+    <form
+      method="dialog"
+      class="dialog-card"
+    >
+
+      <div class="dialog-header">
+        <h3>Bildirim ayarları</h3>
+
+        <button
+          class="icon-button"
+          value="cancel"
+          aria-label="Kapat"
+        >
+          ×
+        </button>
+      </div>
+
+      <div
+        id="notificationOptions"
+        class="notification-options"
+      ></div>
+
+      <button
+        id="requestPermissionButton"
+        class="primary-button"
+        type="button"
+      >
+        Bildirim izni ver
+      </button>
+
+    </form>
+
+  </dialog>
+
+  <div
+    id="toast"
+    class="toast"
+    role="status"
+    aria-live="polite"
+  ></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
