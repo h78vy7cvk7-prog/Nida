@@ -25,35 +25,38 @@
   />
 
   <link rel="stylesheet" href="style.css" />
-<script
-  src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js"
-  defer
-></script>
 
-<script>
-  window.OneSignalDeferred =
-    window.OneSignalDeferred || [];
+  <script
+    src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js"
+    defer
+  ></script>
 
-  OneSignalDeferred.push(
-    async function (OneSignal) {
-      await OneSignal.init({
-        appId:
-          "fc9c18b7-5c3d-4900-9eeb-158b1225d11e",
+  <script>
+    window.OneSignalDeferred =
+      window.OneSignalDeferred || [];
 
-        serviceWorkerPath:
-          "OneSignalSDKWorker.js",
+    window.OneSignalDeferred.push(
+      async function (OneSignal) {
+        await OneSignal.init({
+          appId:
+            "fc9c18b7-5c3d-4900-9eeb-158b1225d11e",
 
-        serviceWorkerParam: {
-          scope: "./"
-        },
+          serviceWorkerPath:
+            "service-worker.js",
 
-        notifyButton: {
-          enable: false
-        }
-      });
-    }
-  );
-</script>
+          serviceWorkerParam: {
+            scope: "/Nida/"
+          },
+
+          notifyButton: {
+            enable: false
+          },
+
+          allowLocalhostAsSecureOrigin: true
+        });
+      }
+    );
+  </script>
 </head>
 
 <body>
@@ -80,11 +83,17 @@
 
         <div class="hero-top">
           <div>
-            <p id="locationLabel" class="location">
-              İstanbul, Türkiye
+            <p
+              id="locationLabel"
+              class="location"
+            >
+              Elazığ, Türkiye
             </p>
 
-            <p id="hijriDate" class="muted">
+            <p
+              id="hijriDate"
+              class="muted"
+            >
               Hicrî tarih hazırlanıyor
             </p>
           </div>
@@ -98,18 +107,26 @@
         </div>
 
         <div class="next-prayer">
-          <p class="muted">Sıradaki vakit</p>
+          <p class="muted">
+            Sıradaki vakit
+          </p>
 
           <h2 id="nextPrayerName">
-            Akşam
+            Yükleniyor
           </h2>
 
-          <div id="nextPrayerTime" class="big-time">
-            19:42
+          <div
+            id="nextPrayerTime"
+            class="big-time"
+          >
+            --:--
           </div>
 
-          <p id="countdown" class="countdown">
-            01:28:15 kaldı
+          <p
+            id="countdown"
+            class="countdown"
+          >
+            Lütfen bekleyin
           </p>
         </div>
 
