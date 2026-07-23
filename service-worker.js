@@ -2,7 +2,7 @@ importScripts(
   "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js"
 );
 
-const CACHE_NAME = "nida-v5";
+const CACHE_NAME = "nida-v7";
 
 const APP_SHELL = [
   "./",
