@@ -23,49 +23,31 @@ const state = {
 };
 
 const locationLabel =
-  document.getElementById(
-    "locationLabel"
-  );
+  document.getElementById("locationLabel");
 
 const prayerList =
-  document.getElementById(
-    "prayerList"
-  );
+  document.getElementById("prayerList");
 
 const nextPrayerName =
-  document.getElementById(
-    "nextPrayerName"
-  );
+  document.getElementById("nextPrayerName");
 
 const nextPrayerTime =
-  document.getElementById(
-    "nextPrayerTime"
-  );
+  document.getElementById("nextPrayerTime");
 
 const countdown =
-  document.getElementById(
-    "countdown"
-  );
+  document.getElementById("countdown");
 
 const gregorianDate =
-  document.getElementById(
-    "gregorianDate"
-  );
+  document.getElementById("gregorianDate");
 
 const hijriDate =
-  document.getElementById(
-    "hijriDate"
-  );
+  document.getElementById("hijriDate");
 
 const cityDialog =
-  document.getElementById(
-    "cityDialog"
-  );
+  document.getElementById("cityDialog");
 
 const citySelect =
-  document.getElementById(
-    "citySelect"
-  );
+  document.getElementById("citySelect");
 
 const notificationDialog =
   document.getElementById(
@@ -77,10 +59,13 @@ const notificationOptions =
     "notificationOptions"
   );
 
-const toast =
+const requestPermissionButton =
   document.getElementById(
-    "toast"
+    "requestPermissionButton"
   );
+
+const toast =
+  document.getElementById("toast");
 
 const installButton =
   document.getElementById(
@@ -167,8 +152,7 @@ async function fetchPrayerTimes() {
             .toISOString()
             .slice(0, 10),
 
-        times:
-          prayerData
+        times: prayerData
       })
     );
 
@@ -186,16 +170,16 @@ async function fetchPrayerTimes() {
       error
     );
 
-    const loadedFromCache =
+    const cacheLoaded =
       loadCachedPrayerTimes();
 
-    if (!loadedFromCache) {
+    if (!cacheLoaded) {
       showPrayerError();
     }
 
     showToast(
-      loadedFromCache
-        ? "İnternet yok. Son kaydedilen vakitler gösteriliyor."
+      cacheLoaded
+        ? "Son kaydedilen vakitler gösteriliyor."
         : "Namaz vakitleri alınamadı."
     );
   }
@@ -289,8 +273,13 @@ function renderApiDates(dateData) {
     dateData &&
     dateData.gregorian
   ) {
+    const gregorian =
+      dateData.gregorian;
+
     gregorianDate.textContent =
-      dateData.gregorian.date;
+      `${gregorian.day} ` +
+      `${gregorian.month.en} ` +
+      `${gregorian.year}`;
   } else {
     renderLocalDate();
   }
@@ -331,16 +320,10 @@ function renderLocalDate() {
 }
 
 function minutesFromTime(value) {
-  const parts =
+  const [hours, minutes] =
     value
       .split(":")
       .map(Number);
-
-  const hours =
-    parts[0];
-
-  const minutes =
-    parts[1];
 
   return (
     hours * 60 +
@@ -350,9 +333,7 @@ function minutesFromTime(value) {
 
 function getNextPrayer() {
   const entries =
-    Object.entries(
-      prayerData
-    );
+    Object.entries(prayerData);
 
   if (entries.length === 0) {
     return null;
@@ -361,7 +342,7 @@ function getNextPrayer() {
   const now =
     new Date();
 
-  const nowMinutes =
+  const currentMinutes =
     now.getHours() * 60 +
     now.getMinutes();
 
@@ -371,7 +352,7 @@ function getNextPrayer() {
   ) {
     if (
       minutesFromTime(time) >
-      nowMinutes
+      currentMinutes
     ) {
       return {
         name,
@@ -441,8 +422,7 @@ function getCountdown(
     String(
       Math.floor(
         (
-          totalSeconds %
-          3600
+          totalSeconds % 3600
         ) / 60
       )
     ).padStart(2, "0");
@@ -474,9 +454,7 @@ function renderPrayerList() {
     of Object.entries(prayerData)
   ) {
     const row =
-      document.createElement(
-        "div"
-      );
+      document.createElement("div");
 
     row.className =
       `prayer-row ${
@@ -585,9 +563,7 @@ function renderNotificationOptions() {
         !== false;
 
       const wrapper =
-        document.createElement(
-          "label"
-        );
+        document.createElement("label");
 
       wrapper.className =
         "notification-option";
@@ -641,9 +617,7 @@ function showToast(message) {
   toast.textContent =
     message;
 
-  toast.classList.add(
-    "show"
-  );
+  toast.classList.add("show");
 
   clearTimeout(
     showToast.timeout
@@ -656,8 +630,126 @@ function showToast(message) {
           "show"
         );
       },
-      2500
+      2800
     );
+}
+
+function waitForSubscription(
+  OneSignal,
+  timeout = 10000
+) {
+  return new Promise(resolve => {
+    const existingId =
+      OneSignal
+        .User
+        .PushSubscription
+        .id;
+
+    if (existingId) {
+      resolve(existingId);
+      return;
+    }
+
+    let finished = false;
+
+    const finish = id => {
+      if (finished) {
+        return;
+      }
+
+      finished = true;
+
+      OneSignal
+        .User
+        .PushSubscription
+        .removeEventListener(
+          "change",
+          listener
+        );
+
+      resolve(id || null);
+    };
+
+    const listener = event => {
+      const subscriptionId =
+        event.current?.id ||
+        OneSignal
+          .User
+          .PushSubscription
+          .id;
+
+      const token =
+        event.current?.token;
+
+      if (
+        subscriptionId ||
+        token
+      ) {
+        setTimeout(
+          () => {
+            finish(
+              OneSignal
+                .User
+                .PushSubscription
+                .id ||
+              subscriptionId
+            );
+          },
+          800
+        );
+      }
+    };
+
+    OneSignal
+      .User
+      .PushSubscription
+      .addEventListener(
+        "change",
+        listener
+      );
+
+    setTimeout(
+      () => {
+        finish(
+          OneSignal
+            .User
+            .PushSubscription
+            .id
+        );
+      },
+      timeout
+    );
+  });
+}
+
+function updateOneSignalButton() {
+  window.OneSignalDeferred =
+    window.OneSignalDeferred || [];
+
+  window.OneSignalDeferred.push(
+    function (OneSignal) {
+      const optedIn =
+        OneSignal
+          .User
+          .PushSubscription
+          .optedIn;
+
+      const subscriptionId =
+        OneSignal
+          .User
+          .PushSubscription
+          .id;
+
+      if (
+        optedIn &&
+        subscriptionId
+      ) {
+        requestPermissionButton
+          .textContent =
+            "Bildirimler açık";
+      }
+    }
+  );
 }
 
 document
@@ -694,9 +786,6 @@ document
 
       cityDialog.close();
 
-      locationLabel.textContent =
-        `${state.city}, Türkiye`;
-
       await fetchPrayerTimes();
 
       showToast(
@@ -714,6 +803,8 @@ document
     () => {
       notificationDialog
         .showModal();
+
+      updateOneSignalButton();
     }
   );
 
@@ -726,93 +817,125 @@ document
     () => {
       notificationDialog
         .showModal();
+
+      updateOneSignalButton();
     }
   );
 
-document
-  .getElementById(
-    "requestPermissionButton"
-  )
+requestPermissionButton
   .addEventListener(
     "click",
-    async () => {
+    () => {
 
-      if (
-        !("serviceWorker" in navigator)
-      ) {
-        showToast(
-          "Bu cihaz bildirim sistemini desteklemiyor."
-        );
+      window.OneSignalDeferred =
+        window.OneSignalDeferred || [];
 
-        return;
-      }
+      window.OneSignalDeferred.push(
+        async function (OneSignal) {
 
-      if (
-        !("Notification" in window)
-      ) {
-        showToast(
-          "Nida'yı önce ana ekrana ekleyip oradan aç."
-        );
+          requestPermissionButton
+            .disabled = true;
 
-        return;
-      }
+          requestPermissionButton
+            .textContent =
+              "Bağlanıyor...";
 
-      try {
-        const permission =
-          await Notification
-            .requestPermission();
+          try {
+            const supported =
+              OneSignal
+                .Notifications
+                .isPushSupported();
 
-        if (
-          permission !== "granted"
-        ) {
-          showToast(
-            "Bildirim izni verilmedi."
-          );
-
-          return;
-        }
-
-        const registration =
-          await navigator
-            .serviceWorker
-            .ready;
-
-        await registration
-          .showNotification(
-            "Nida",
-            {
-              body:
-                "Bildirimler hazır. Vaktin geldiğinde burada haber vereceğiz.",
-
-              icon:
-                "./icons/icon-192.png",
-
-              badge:
-                "./icons/icon-192.png",
-
-              tag:
-                "nida-test",
-
-              data: {
-                url: "./"
-              }
+            if (!supported) {
+              throw new Error(
+                "Push desteklenmiyor."
+              );
             }
-          );
 
-        showToast(
-          "Deneme bildirimi gönderildi."
-        );
+            if (
+              !OneSignal
+                .Notifications
+                .permission
+            ) {
+              await OneSignal
+                .Notifications
+                .requestPermission();
+            }
 
-      } catch (error) {
-        console.error(
-          "Bildirim hatası:",
-          error
-        );
+            if (
+              !OneSignal
+                .Notifications
+                .permission
+            ) {
+              throw new Error(
+                "Bildirim izni verilmedi."
+              );
+            }
 
-        showToast(
-          "Bildirim gönderilemedi."
-        );
-      }
+            OneSignal
+              .User
+              .PushSubscription
+              .optIn();
+
+            const subscriptionId =
+              await waitForSubscription(
+                OneSignal
+              );
+
+            const optedIn =
+              OneSignal
+                .User
+                .PushSubscription
+                .optedIn;
+
+            console.log(
+              "OneSignal abonelik kimliği:",
+              subscriptionId
+            );
+
+            console.log(
+              "OneSignal abonelik durumu:",
+              optedIn
+            );
+
+            if (
+              optedIn &&
+              subscriptionId
+            ) {
+              requestPermissionButton
+                .textContent =
+                  "Bildirimler açık";
+
+              showToast(
+                "Nida bildirimlerine abone oldun."
+              );
+            } else {
+              throw new Error(
+                "Abonelik kimliği oluşmadı."
+              );
+            }
+
+          } catch (error) {
+            console.error(
+              "OneSignal hatası:",
+              error
+            );
+
+            requestPermissionButton
+              .textContent =
+                "Tekrar dene";
+
+            showToast(
+              "Abonelik kurulamadı. Nida'yı ana ekran simgesinden aç."
+            );
+          } finally {
+            requestPermissionButton
+              .disabled = false;
+          }
+
+        }
+      );
+
     }
   );
 
@@ -866,9 +989,7 @@ installButton.addEventListener(
   "click",
   async () => {
 
-    if (
-      !deferredInstallPrompt
-    ) {
+    if (!deferredInstallPrompt) {
       showToast(
         "Safari paylaş menüsünden Ana Ekrana Ekle seçeneğini kullan."
       );
@@ -881,36 +1002,11 @@ installButton.addEventListener(
     await deferredInstallPrompt
       .userChoice;
 
-    deferredInstallPrompt =
-      null;
+    deferredInstallPrompt = null;
 
-    installButton.hidden =
-      true;
+    installButton.hidden = true;
   }
 );
-
-if (
-  "serviceWorker" in navigator
-) {
-  window.addEventListener(
-    "load",
-    () => {
-
-      navigator
-        .serviceWorker
-        .register(
-          "service-worker.js"
-        )
-        .catch(error => {
-          console.error(
-            "Service worker hatası:",
-            error
-          );
-        });
-
-    }
-  );
-}
 
 locationLabel.textContent =
   `${state.city}, Türkiye`;
@@ -919,6 +1015,7 @@ citySelect.value =
   state.city;
 
 fetchPrayerTimes();
+updateOneSignalButton();
 
 setInterval(
   renderNextPrayer,
