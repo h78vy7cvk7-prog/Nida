@@ -25,6 +25,35 @@
   />
 
   <link rel="stylesheet" href="style.css" />
+<script
+  src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js"
+  defer
+></script>
+
+<script>
+  window.OneSignalDeferred =
+    window.OneSignalDeferred || [];
+
+  OneSignalDeferred.push(
+    async function (OneSignal) {
+      await OneSignal.init({
+        appId:
+          "fc9c18b7-5c3d-4900-9eeb-158b1225d11e",
+
+        serviceWorkerPath:
+          "OneSignalSDKWorker.js",
+
+        serviceWorkerParam: {
+          scope: "./"
+        },
+
+        notifyButton: {
+          enable: false
+        }
+      });
+    }
+  );
+</script>
 </head>
 
 <body>
